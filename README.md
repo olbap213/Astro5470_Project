@@ -35,3 +35,5 @@ get_vel_shift(freq, rest_freq)\
 Nup(rest_freq, Aij, integ_temp)\
 area_under_gauss(param)\
 ln_Nu_gu(rest_freq, Aij, gup, tot_area)\
+
+For more information on the functions, refer to the wiki
