@@ -90,3 +90,62 @@ def brightness_temp(freq, Ntot, T, FWHM, vlsr, param):
     bdf = beam_dilution(source_size, bmax, bmin)
     
     return  bdf * (J - J_cmb - back_T)*(1 - np.exp(-tau))
+    
+
+def rad_trans(dbname, molname, freq, Ntot, T, FWHM, vlsr, size=1):
+    """ Compute the radiative transfer model for all lines belonging to a molecule"""
+
+    # Read in lines and partition function info from slected database
+    if dbname == 'CDMS':
+        lines = read_CDMS(molname, (min(freq)*u.MHz).to(u.GHz).value, (max(freq)*u.MHz).to(u.GHz).value)   # Read in all lines in spectra range
+        T_list, log_Q = read_CDMSQ(molname.split()[0])
+    elif dbname == 'JPL':
+        lines = read_JPL(molname, (min(freq)*u.MHz).to(u.GHz).value, (max(freq)*u.MHz).to(u.GHz).value)   # Read in all lines in spectra range
+        T_list, log_Q = read_JPLQ(molname.split()[1])
+
+    if isinstance(lines, int):
+        return 0
+    # Filter the lines by removing lines with weak emission
+    lines = lines[lines['EUP'] < 400*u.K]    # Remove lines with Eup larger than 400K
+    lines = lines[lines['Aij'] > 1e-8*(1/u.s)]
+    
+    lines_index = np.where((lines['EUP'] > 150*u.K) & (lines['Aij'] < 1e-7*(1/u.s)))
+    lines.remove_rows(lines_index)
+
+
+    # Get the beam size for each line WITHIN THIS SPECTRA ONLY
+    beam = np.loadtxt("/Users/olbap/Downloads/beam_min_max.txt")
+    spec_bounds = np.loadtxt('spec_bounds.txt')
+    
+    lines['BMAX'] = np.zeros(len(lines['FREQ']))
+    lines['BMIN'] = np.zeros(len(lines['FREQ']))
+    
+    for i in range(len(spec_bounds)):
+        ind = np.where((lines['FREQ'].value > spec_bounds[i,0]) & (lines['FREQ'].value < spec_bounds[i,1]))
+        if len(lines['FREQ']) == len(ind[0]):
+            lines['BMAX'][ind] = beam[i,0]
+            lines['BMIN'][ind] = beam[i,1]
+
+
+    bmax = lines['BMAX']
+    bmin = lines['BMIN']
+
+    rest_freq = lines['FREQ'].value * 1e6  #in Hz
+    Eup = lines['EUP'].value  #in K
+    Aij = lines['Aij'].value
+    gu = lines['GUP'].value
+    source_size = size  #in arcsec
+    back_T = 5.512
+    
+    param_list = T_list, log_Q, rest_freq, Aij, gu, Eup, back_T, source_size, bmax, bmin
+
+    Ntot = Ntot *100**2  #in m^-2
+    Tex = T  #in Kelvin
+    FWHM = FWHM * 1000  #in m/s
+    vlsr = vlsr * 1000  #in m/s
+
+    if str(type(freq)) == "<class 'numpy.ndarray'>":
+        freq = np.vstack(freq)
+        return np.sum(brightness_temp(freq*1e6, Ntot, T, FWHM, vlsr, param_list), axis=1)
+    else:
+        return np.sum(brightness_temp(freq*1e6, Ntot, T, FWHM, vlsr, param_list))

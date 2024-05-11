@@ -63,14 +63,3 @@ def area_under_gauss(param):
 def ln_Nu_gu(rest_freq, Aij, gup, tot_area):
     """ Compute ln(Nu/gup) in cm^-2 """
     return np.log(Nup(rest_freq*1e6, Aij, tot_area)/gup * (1/100**2))
-
-
-def rm_db(array):
-    """ Remove every instance of elements in an array that appear more than once """
-    uni, ind, count = np.unique(array, return_counts=True, return_inverse=True)
-    multi_count_ind = np.where(count > 1)
-
-    for i in multi_count_ind[0]:
-        ind = ind[ind != i]
-
-    return uni[ind]
